@@ -1,0 +1,10 @@
+﻿
+ipfs = QmXNHizy5cUWu5ydrTmaRaSgzXgEPUZj24QtQNdPPMkjD5
+sha256 = 3621349b45ad40a020710607c78e03294b783272240af12a084669478c6a16c6
+md5 = bf04780a88a28be1cc24878b348dd49a
+size = 19003316
+title = Downloading - ZeroNet v0.70
+saveas = ZeroNet-win-dist-win64.zip
+pattern = ZIP (*.zip)|*.zip
+width = 300
+height = 65
