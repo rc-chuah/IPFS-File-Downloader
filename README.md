@@ -15,8 +15,3 @@ A tool which downloads files from the IPFS
 <p> 1) <a href="https://github.com/99fk/IPFS-File-Downloader/archive/master.zip">Download</a> the source</p>
 <p> 2) Extract it to a location of your choice</p>
 <p> 3) Open <b>IPFS_File_Downloader.pb</b> in PureBasic and hit <b>Compile</b></p>
-
-
-<h2>Notes</h2>
-
-<p>The Windows and Mac OS binaries are just examples. You need to modify <b>IPFS_File_Downloader.pb</b> and recompile it to download a different file.</p>
