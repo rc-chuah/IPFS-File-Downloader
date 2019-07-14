@@ -7,4 +7,12 @@ title = Downloading - ZeroNet v0.70
 saveas = ZeroNet-win-dist-win64.zip
 pattern = ZIP (*.zip)|*.zip
 width = 300
-height = 65
+height = 85
+saveastitle = Save as...
+invisible = 0
+[msgbox]
+done = Done
+errortitle = Error
+erric = Integrity check failed
+errnetw = Couldn't initiliaze the network.
+errsave = Unable to save the file

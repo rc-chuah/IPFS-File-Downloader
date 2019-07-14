@@ -7,37 +7,88 @@ EndDataSection
   UseSHA2Fingerprint()
   UseMD5Fingerprint()
 
-  Global NewList GateWays.s()
+  Global NewList GateWays.s ()
   Global link$
   Global *mem
   Global ok
+  Global kill
   
-;-------------------------------------------------------------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   
-OpenPreferences(GetPathPart(ProgramFilename())+"preferences")
+; The downloader will look for a 'preferences' file in the same directory by default. To use a different preference file simply pass the filename as a switch.
   
-  Global download$ = ReadPreferenceString("ipfs","")                     ; <----- The IPFS hash
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   
-  Global md5$ = ReadPreferenceString("md5","")                           ; <----- The MD5 hash
-  
-  Global sha256$ = ReadPreferenceString("sha256","")                     ; <----- The SHA256 hash
+  If CountProgramParameters() > 0
     
-  Global size = Val( ReadPreferenceString("size","") )                   ; <----- Filesize in bytes
+    preferences$ = ProgramParameter(0)
+    
+  Else
+    
+    preferences$ = GetPathPart(ProgramFilename())+"preferences"
+      
+  EndIf
   
-  Global title$ = ReadPreferenceString("title","")                       ; <----- The window title 
   
-  Global saveas$ = ReadPreferenceString("saveas","")                     ; <----- Default file name used in the Savefile dialog 
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   
-  Global filepattern$ = ReadPreferenceString("pattern","")               ; <----- Filepattern used in the Savefile dialog
+OpenPreferences(preferences$)
   
-  Global width = Val( ReadPreferenceString("width","300") )              ; <----- Window width (Default 300)
+  Global download$ = ReadPreferenceString("ipfs","")                                        ; <----- The IPFS hash
   
-  Global height = Val( ReadPreferenceString("height","65") )             ; <----- Window height (Default 65)
+  Global md5$ = ReadPreferenceString("md5","")                                              ; <----- The MD5 hash
   
+  Global sha256$ = ReadPreferenceString("sha256","")                                        ; <----- The SHA256 hash
+    
+  Global size = Val( ReadPreferenceString("size","") )                                      ; <----- Filesize in bytes
+  
+  Global title$ = ReadPreferenceString("title","")                                          ; <----- The window title 
+  
+  Global saveas$ = ReadPreferenceString("saveas","")                                        ; <----- Default file name used in the Savefile dialog 
+  
+  Global saveastitle$ = ReadPreferenceString("saveastitle","")                              ; <----- The title used in the Savefile dialog 
+    
+  Global filepattern$ = ReadPreferenceString("pattern","")                                  ; <----- Filepattern used in the Savefile dialog
+  
+  Global width = Val( ReadPreferenceString("width","300") )                                 ; <----- Window width (Default 300)
+  
+  Global height = Val( ReadPreferenceString("height","65") )                                ; <----- Window height (Default 65)
+  
+  Global invisible = Val( ReadPreferenceString("invisible","0") )                           ; <----- Set this to 1 to hide the main window, savefile dialog and messages (Default 0)
+  
+  
+PreferenceGroup("msgbox")
+
+  
+  Global done$ = ReadPreferenceString("done","Done.")                                       ; <----- Message shown when the download completes
+  
+  Global error$ = ReadPreferenceString("error","Error")                                     ; <----- Messagebox title when an error occurs
+  
+  Global dlfail$ = ReadPreferenceString("errdl","Download failed")                          ; <----- Message shown when the download fails
+  
+  Global errsave$ = ReadPreferenceString("errsave","Unable to save the file")               ; <----- File write error message
+  
+  Global erric$ = ReadPreferenceString("erric","Integrity check failed")                    ; <----- Integrity check error message
+  
+  Global errnetw$ = ReadPreferenceString("errnetw","Couldn't initiliaze the network.")      ; <----- Network initialization error message
+  
+
 ClosePreferences()
 
-;-------------------------------------------------------------------------------------------------------------------------------------
-  
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Error codes
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; 0 = Success
+; 1 = Download failed
+; 2 = Network initialization error
+; 3 = Integrity check error
+; 4 = File write error
+
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 Macro DownloadProgress()
   
   p = HTTPProgress(down)
@@ -67,6 +118,10 @@ EndMacro
 Macro Timer()
   
 If EventTimer()=1
+  
+If kill=1
+  Failed()
+EndIf
   
 If ok=1
   
@@ -98,6 +153,8 @@ EndIf
 EndMacro
 Macro IPFS()
   
+  ; Try to download from 'http://127.0.0.1:8080/ipfs/' first before using public gateways - This should work if the IPFS daemon is running
+  
   i$ = "http://127.0.0.1:8080/ipfs/"
   
   *ipfs = ReceiveHTTPMemory(i$) 
@@ -113,41 +170,67 @@ EndIf
   
 EndMacro
 
+Procedure MsgBox(mbtitle.s,mbtext.s, f = #PB_MessageRequester_Error)
+  
+If invisible=0
+  
+  MessageRequester(mbtitle,mbtext,f)
+  
+EndIf
+  
+EndProcedure
 Procedure Failed()
   
 If IsWindow(0)
   CloseWindow(0)
 EndIf
 
-  MessageRequester("","Download failed")
+  MsgBox(error$,dlfail$)
    
-  End  
+  End 1
   
 EndProcedure
 Procedure Save()
-      
-  s$=SaveFileRequester("Save as...", GetPathPart(ProgramFilename()) + saveas$, filepattern$, 0)
+  
+If invisible
+  
+  s$ = saveas$
+  
+Else
+  
+  s$=SaveFileRequester(saveastitle$, saveas$, filepattern$, 0)
+  
+EndIf
   
 If s$
   
 If CreateFile(0,s$)
   
   WriteData(0,*mem,size)
-  CloseFile(0)
-  MessageRequester("","Done")
   
-  End
+  CloseFile(0)
+  
+  MsgBox( "" , done$, #PB_MessageRequester_Ok )
+  
+  End 0
   
 Else
   
-  MessageRequester("","Unable to save the file")
+If invisible
+  
+  End 4
+  
+EndIf
+  
+  MsgBox(err$,errsave$)
+  
   Save()
   
 EndIf
 
 Else
   
-  End
+  End 4
   
 EndIf
 
@@ -162,17 +245,31 @@ If Fingerprint(*mem, size, #PB_Cipher_SHA2,256) = sha256$ And Fingerprint(*mem, 
 
 Else
   
-  MessageRequester("", "Integrity check failed")
+  MsgBox(error$, erric$)
+  
+  End 3
   
 EndIf
   
 EndProcedure
 Procedure GetSize(l$)
-    
+  
+Static fail
+  
+If fail=>ListSize(GateWays())
+  
+  kill=1
+  ProcedureReturn 0
+        
+EndIf
+
   h$ = GetHTTPHeader(l$+download$)
-  
   cl$="Content-Length:"
+      
+  status$ = StringField( Mid( h$,FindString(h$,"http",0,#PB_String_NoCase ) ) , 1, Chr(10) )
   
+If FindString(status$, "200", 0, #PB_String_NoCase) And FindString(status$, "ok", 0, #PB_String_NoCase)
+    
   pos = FindString(h$,cl$)
     
 If pos
@@ -182,6 +279,12 @@ If pos
   
   v = Val(h$)
   
+EndIf
+
+Else
+  
+  fail+1
+    
 EndIf
 
   ProcedureReturn v
@@ -203,7 +306,13 @@ Procedure Download()
   
   FirstElement(GateWays())
     
-If OpenWindow(0, 0, 0, width, height, title$, #PB_Window_MinimizeGadget|#PB_Window_SystemMenu | #PB_Window_ScreenCentered)
+If OpenWindow(0, 0, 0, width, height, title$, #PB_Window_MinimizeGadget|#PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_Invisible)
+  
+If invisible=0
+  
+  HideWindow(0,0)
+  
+EndIf
   
   AddWindowTimer(0,1,1000)
   
@@ -265,12 +374,13 @@ If InitNetwork()
   
 Else
   
-  MessageRequester("","Couldn't initiliaze the network.")
-  End
+  MsgBox(error$,errnetw$)
+  
+  End 2
   
 EndIf
 ; IDE Options = PureBasic 5.70 LTS (Linux - x64)
-; Folding = Ao
+; Folding = AQ-
 ; EnableThread
 ; EnableXP
 ; Executable = downloader
